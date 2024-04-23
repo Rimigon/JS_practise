@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>Тетрис</title>
     <style>
       /*настройки стилей страницы*/
@@ -16,24 +17,35 @@
         align-items: center;
         justify-content: center;
       }
-      /*толщина холста — 1 пиксель, белый цвет*/
+      /*толщина обводки холста — 1 пиксель, белый цвет*/
       canvas {
         border: 1px solid white;
       }
+
+
     </style>
 </head>
 
 <body>
   <!-- рисуем поле для игры -->
   <canvas width="320" height="640" id="game"></canvas>
+
+  <!-- добавляем область для вывода информации о текущей игре -->
+  <canvas style="border: 0px" width="320" height="100" id="score"></canvas>
+
   <script>
     // License CC0 1.0 Universal 
     // https://gist.github.com/straker/3c98304f8a6a9174efd8292800891ea1
     // https://tetris.fandom.com/wiki/Tetris_Guideline
 
-    // получаем доступ к холсту
+    // получаем доступ к основному холсту
     const canvas = document.getElementById('game');
     const context = canvas.getContext('2d');
+
+    // получаем доступ к холсту с игровой статистикой
+    const canvasScore = document.getElementById('score');
+    const contextScore = canvasScore.getContext('2d');
+
     // размер квадратика
     const grid = 32;
     // массив с последовательностями фигур, на старте — пустой
@@ -112,6 +124,27 @@
     // флаг конца игры, на старте — неактивный
     let gameOver = false;
 
+    // количество набранных очков на старте
+    let score = 0;
+    // рекорд игры
+    let record = 0;
+    // текущий уровень сложности
+    let level = 1;
+    // имя игрока с наибольшим рейтингом
+    let recordName = '';
+
+    // спрашиваем имя игрока при запуске
+    name = prompt("Ваше имя", "");
+
+
+    // Узнаём размер хранилища
+    var Storage_size = localStorage.length;
+    // Если в хранилище уже что-то есть…
+    if (Storage_size > 0) {
+      // …то достаём оттуда значение рекорда и имя чемпиона
+      record = localStorage.record;
+      recordName = localStorage.recordName;
+    }
 
     // Функция возвращает случайное число в заданном диапазоне
     // https://stackoverflow.com/a/1527820/2124254
@@ -156,9 +189,9 @@
 
       // вот что возвращает функция 
       return {
-        name: name,      // название фигуры (L, O, и т.д.)
+        name: name,      // название фигуры (L, O, и т. д.)
         matrix: matrix,  // матрица с фигурой
-        row: row,        // текущая строка (фигуры стартую за видимой областью холста)
+        row: row,        // текущая строка (фигуры стартуют за видимой областью холста)
         col: col         // текущий столбец
       };
     }
@@ -218,6 +251,21 @@
         // если ряд заполнен
         if (playfield[row].every(cell => !!cell)) {
 
+          score += 10;
+          // считаем уровень
+          level = Math.floor(score/100) + 1;
+          // если игрок побил прошлый рекорд
+          if (score > record) {
+            // ставим его очки как рекорд
+            record = score;
+            // заносим в хранилище значение рекорда
+            localStorage.record = record;
+            // меняем имя чемпиона
+            recordName = name;
+            // заносим в хранилище его имя
+            localStorage.recordName = recordName;
+          }
+
           // очищаем его и опускаем всё вниз на одну клетку
           for (let r = row; r >= 0; r--) {
             for (let c = 0; c < playfield[r].length; c++) {
@@ -253,7 +301,17 @@
         context.fillText('GAME OVER!', canvas.width / 2, canvas.height / 2);
       }
 
-    
+    function showScore() {
+      contextScore.clearRect(0,0,canvasScore.width,canvasScore.height);
+      contextScore.globalAlpha = 1;
+      contextScore.fillStyle = 'white';
+      contextScore.font = '18px Courier New';
+      contextScore.fillText('Уровень: ' + level, 15, 20);
+      contextScore.fillText('Очков:   ' + score, 15, 50);
+      contextScore.fillText('Чемпион: ' + recordName, 160, 20);
+      contextScore.fillText('Рекорд:  ' + record, 160, 50);
+
+    }
 
     // главный цикл игры
     function loop() {
@@ -275,11 +333,14 @@
         }
       }
 
+      // выводим статистику
+      showScore();
+
       // рисуем текущую фигуру
       if (tetromino) {
 
-        // фигура сдвигается вниз каждые 35 кадров
-        if (++count > 35) {
+        // фигура сдвигается вниз каждые 36 кадров минус значение текущего уровня. Чем больше уровень, тем быстрее падает.
+        if (++count > (36 - level)) {
           tetromino.row++;
           count = 0;
 
